@@ -1,0 +1,8 @@
+INTSTYLE=ise
+INFILE=C:\Users\YutongGu\College\Programming\Xilinx\FinalProject2\vga_demo.ncd
+OUTFILE=C:\Users\YutongGu\College\Programming\Xilinx\FinalProject2\vga_demo.bit
+FAMILY=Spartan6
+PART=xc6slx16-3csg324
+WORKINGDIR=C:\Users\YutongGu\College\Programming\Xilinx\FinalProject2
+LICENSE=WebPack
+USER_INFO=211388196_0_0_672
