@@ -3,32 +3,40 @@
 // VGA verilog template
 // Author:  Da Cheng
 //////////////////////////////////////////////////////////////////////////////////
-module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, btnU, btnD,
+module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1, 
+	vga_b1, vga_r2, vga_g2, vga_b2, Sw0, BtnC,
 	St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar,
 	An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp,
 	LD0, LD1, LD2, LD3, LD4, LD5, LD6, LD7);
-	input ClkPort, Sw0, btnU, btnD, Sw0, Sw1;
+	input ClkPort, Sw0, BtnC;
 	output St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar;
-	output vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b;
+	output vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1, vga_b1, vga_r2, vga_g2, vga_b2;
 	output An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp;
 	output LD0, LD1, LD2, LD3, LD4, LD5, LD6, LD7;
-	wire vga_r0, vga_g0, vga_r1, vga_g1, vga_b1, vga_r2, vga_g2, vga_b2;
 	
-	reg [2:0] vga_r = {vga_r2, vga_r1, vga_r0};
-	reg [2:0] vga_g = {vga_g2, vga_g1, vga_g0};
-	reg [1:0] vga_b = {vga_b2, vga_b1};
+	reg [2:0] vga_r;
+	reg [2:0] vga_g;
+	reg [1:0] vga_b;
+	
+	assign vga_r2 = vga_r[2];
+	assign vga_r1 = vga_r[1];
+	assign vga_r0 = vga_r[0];
+	assign vga_g2 = vga_g[2];
+	assign vga_g1 = vga_g[1];
+	assign vga_g0 = vga_g[0];
+	assign vga_b2 = vga_b[1];
+	assign vga_b1 = vga_b[0];
 	
 	//////////////////////////////////////////////////////////////////////////////////////////
 	
 	/*  LOCAL SIGNALS */
-	wire fsm_reset, start, ClkPort, board_clk, clk, button_clk;
+	wire reset, ClkPort, board_clk, clk;
 	wire [3:0] fsm_update_clk_div;
 	reg  fsm_update_clk;
 	wire [3:0] clk_thres;
 	
 	BUF BUF1 (board_clk, ClkPort); 	
-	BUF BUF2 (fsm_reset, Sw0);
-	BUF BUF3 (start, Sw1);
+	BUF BUF2 (reset, Sw0);
 	
 	reg [27:0]	DIV_CLK;
 	always @ (posedge board_clk, posedge reset)  
@@ -39,7 +47,6 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 			DIV_CLK <= DIV_CLK + 1'b1;
 	end	
 
-	assign	button_clk = DIV_CLK[18];
 	assign	clk = DIV_CLK[1];
 	assign 	fsm_update_clk_div = DIV_CLK[25:22];
 	assign 	{St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar} = {5'b11111};
@@ -48,9 +55,12 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	wire [9:0] CounterX;
 	wire [9:0] CounterY;
 	wire fsm_write_strobe;
-	wire fsm_row_index;
-	wire [2:0] fsm_output;
+	wire [2:0] fsm_row_index;
+	wire [7:0] fsm_output;
+	wire fsm_clrarray;
 	wire fsm_BtnC_SCEN;
+	
+	assign clk_thres = 12-fsm_row_index;
 
 	wire [2:0] row;
 	wire [2:0] col;
@@ -91,23 +101,12 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	
 	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), .inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
 	ee201_debouncer #(.N_dc(25)) ee201_debouncer_1 
-        (.CLK(clk), .RESET(Reset), .PB(BtnC), .DPB( ), .SCEN(BtnC_SCEN), .MCEN( ), .CCEN( ));
+        (.CLK(clk), .RESET(reset), .PB(BtnC), .DPB( ), .SCEN(fsm_BtnC_SCEN), .MCEN( ), .CCEN( ));
 
-	
-	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), .inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
-	fsm statemachine(.btn(), .updateClk(fsm_update_clk_div), .reset(fsm_reset), .val(fsm_output), .rowIndex(), .writeStrobe());
+	fsm statemachine(.clk(clk), .btn(fsm_BtnC_SCEN), .updateClk(fsm_update_clk), .reset(reset), .val(fsm_output), .rowIndex(fsm_row_index), .writeStrobe(fsm_write_strobe), .clrarray(fsm_clrarray));
 	/////////////////////////////////////////////////////////////////
 	///////////////		VGA control starts here		/////////////////
 	/////////////////////////////////////////////////////////////////
-	reg [9:0] position;
-	
-	always @(posedge DIV_CLK[21])
-		begin
-			if(fsm_update_clk_div == clk_thres) //updating the block moving speed
-				fsm_update_clk <= 1;
-			else
-				fsm_update_clk <= 0;
-		end
 
 	wire R = blockarray[7-row][col];
 	wire G = blockarray[7-row][col];
@@ -116,12 +115,37 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	wire R_en = R & inDisplayArea;
 	wire G_en = G & inDisplayArea;
 	wire B_en = B & inDisplayArea;
+	reg update_flag;
 	
 	always @(posedge clk)
 	begin
 		vga_r <= {R_en, R_en, R_en};
 		vga_g <= {G_en, G_en, G_en};
 		vga_b <= {B_en, B_en};
+		
+		if(fsm_update_clk_div == clk_thres & update_flag == 0) //updating the block moving speed
+			begin
+				fsm_update_clk <= 1;
+				update_flag <= 1;
+			end
+		else
+			fsm_update_clk <= 0;
+			
+		if(fsm_clrarray)
+			begin
+				blockarray[0] <= 7'd0;
+				blockarray[1] <= 7'd0;
+				blockarray[2] <= 7'd0;
+				blockarray[3] <= 7'd0;
+				blockarray[4] <= 7'd0;
+				blockarray[5] <= 7'd0;
+				blockarray[6] <= 7'd0;
+				blockarray[7] <= 7'd0;
+			end
+			
+		if(fsm_update_clk_div != clk_thres)
+			update_flag <=0;
+			
 		if(fsm_write_strobe)
 			begin
 				blockarray[7-fsm_row_index] <= fsm_output;
@@ -135,6 +159,7 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	/////////////////////////////////////////////////////////////////
 	//////////////  	  LD control starts here 	 ///////////////////
 	/////////////////////////////////////////////////////////////////
+	/*
 	`define QI 			2'b00
 	`define QGAME_1 	2'b01
 	`define QGAME_2 	2'b10
@@ -216,7 +241,7 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 			default: SSD_CATHODES = 7'bXXXXXXX ; // default is not needed as we covered all cases
 		endcase
 	end
-	
+	*/
 	/////////////////////////////////////////////////////////////////
 	//////////////  	  SSD control ends here 	 ///////////////////
 	/////////////////////////////////////////////////////////////////
