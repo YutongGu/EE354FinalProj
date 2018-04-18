@@ -52,16 +52,48 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	wire write_strobe;
 	wire fsm_row_index;
 	wire [2:0] fsm_output;
+	wire fsm_BtnC_SCEN;
 
 	wire [2:0] row;
 	wire [2:0] col;
 	
+	/*
+	wire [7:0] decoded_col;
+	wire [7:0] decoded_row;
+	
+	always@(*)
+		begin
+			case(col)
+				3'd0: decoded_col = 8'b00000001;
+				3'd1: decoded_col = 8'b00000010;
+				3'd2: decoded_col = 8'b00000100;
+				3'd3: decoded_col = 8'b00001000;
+				3'd4: decoded_col = 8'b00010000;
+				3'd5: decoded_col = 8'b00100000;
+				3'd6: decoded_col = 8'b01000000;
+				3'd7: decoded_col = 8'b10000000;
+			endcase
+			case(row)
+				3'd0: decoded_row = 8'b00000001;
+				3'd1: decoded_row = 8'b00000010;
+				3'd2: decoded_row = 8'b00000100;
+				3'd3: decoded_row = 8'b00001000;
+				3'd4: decoded_row = 8'b00010000;
+				3'd5: decoded_row = 8'b00100000;
+				3'd6: decoded_row = 8'b01000000;
+				3'd7: decoded_row = 8'b10000000;
+			endcase
+		end
+	*/
+	
 	assign row = CounterX/80;
 	assign col = CounterY/60;
-	
-	reg [2:0] blockarray [2:0];
+
+	reg [7:0] blockarray [7:0];
 	
 	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), .inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
+	ee201_debouncer #(.N_dc(25)) ee201_debouncer_1 
+        (.CLK(clk), .RESET(Reset), .PB(BtnC), .DPB( ), .SCEN(BtnC_SCEN), .MCEN( ), .CCEN( ));
 	
 	/////////////////////////////////////////////////////////////////
 	///////////////		VGA control starts here		/////////////////
@@ -76,9 +108,9 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 				update_clk <= 0;
 		end
 
-	wire R = blockarray[row][col];
-	wire G = blockarray[row][col];
-	wire B = blockarray[row][col];
+	wire R = blockarray[7-row][col];
+	wire G = blockarray[7-row][col];
+	wire B = blockarray[7-row][col];
 	
 	wire R_en = R & inDisplayArea;
 	wire G_en = G & inDisplayArea;
@@ -91,7 +123,7 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 		vga_b <= {B_en, B_en};
 		if(write_strobe)
 			begin
-				blockarray[fsm_row_index] <= fsm_output;
+				blockarray[7-fsm_row_index] <= fsm_output;
 			end
 	end
 	
