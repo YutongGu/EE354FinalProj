@@ -21,14 +21,13 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	//////////////////////////////////////////////////////////////////////////////////////////
 	
 	/*  LOCAL SIGNALS */
-	wire reset, start, ClkPort, board_clk, clk, button_clk;
-	wire [3:0] update_clk_div;
-	reg  update_clk;
+	wire fsm_reset, start, ClkPort, board_clk, clk, button_clk;
+	wire [3:0] fsm_update_clk_div;
+	reg  fsm_update_clk;
 	wire [3:0] clk_thres;
-	wire [2:0] level;
 	
 	BUF BUF1 (board_clk, ClkPort); 	
-	BUF BUF2 (reset, Sw0);
+	BUF BUF2 (fsm_reset, Sw0);
 	BUF BUF3 (start, Sw1);
 	
 	reg [27:0]	DIV_CLK;
@@ -42,16 +41,17 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 
 	assign	button_clk = DIV_CLK[18];
 	assign	clk = DIV_CLK[1];
-	assign 	update_clk_div = DIV_CLK[25:22];
+	assign 	fsm_update_clk_div = DIV_CLK[25:22];
 	assign 	{St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar} = {5'b11111};
-	assign   clk_thres = 12-level;
-	  
+
 	wire inDisplayArea;
 	wire [9:0] CounterX;
 	wire [9:0] CounterY;
-	wire write_strobe;
+	wire fsm_write_strobe;
 	wire fsm_row_index;
-	wire [2:0] fsm_output;
+	wire [7:0] fsm_output;
+
+	assign   clk_thres = 12-fsm_row_index;
 
 	wire [2:0] row;
 	wire [2:0] col;
@@ -59,10 +59,11 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	assign row = CounterX/80;
 	assign col = CounterY/60;
 	
-	reg [2:0] blockarray [2:0];
+	reg [2:0] blockarray [7:0];
+	
 	
 	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), .inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
-	
+	fsm statemachine(.btn(), .updateClk(fsm_update_clk_div), .reset(fsm_reset), .val(fsm_output), .rowIndex(), .writeStrobe());
 	/////////////////////////////////////////////////////////////////
 	///////////////		VGA control starts here		/////////////////
 	/////////////////////////////////////////////////////////////////
@@ -70,10 +71,10 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	
 	always @(posedge DIV_CLK[21])
 		begin
-			if(update_clk_div == clk_thres) //updating the block moving speed
-				update_clk <= 1;
+			if(fsm_update_clk_div == clk_thres) //updating the block moving speed
+				fsm_update_clk <= 1;
 			else
-				update_clk <= 0;
+				fsm_update_clk <= 0;
 		end
 
 	wire R = blockarray[row][col];
@@ -89,7 +90,7 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 		vga_r <= {R_en, R_en, R_en};
 		vga_g <= {G_en, G_en, G_en};
 		vga_b <= {B_en, B_en};
-		if(write_strobe)
+		if(fsm_write_strobe)
 			begin
 				blockarray[fsm_row_index] <= fsm_output;
 			end
@@ -186,5 +187,16 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	
 	/////////////////////////////////////////////////////////////////
 	//////////////  	  SSD control ends here 	 ///////////////////
+	/////////////////////////////////////////////////////////////////
+	
+		/////////////////////////////////////////////////////////////////
+	//////////////  	  Row Enconding control starts here 	 	////////////////////
+	/////////////////////////////////////////////////////////////////
+	
+	
+	
+	
+	/////////////////////////////////////////////////////////////////
+	//////////////  	  Row Encoding control ends here 	 ///////////////////
 	/////////////////////////////////////////////////////////////////
 endmodule
