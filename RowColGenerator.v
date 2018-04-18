@@ -20,33 +20,20 @@
 //////////////////////////////////////////////////////////////////////////////////
 module RowColGenerator(
 	 input clk,
-    input h_sync,
-    input v_sync,
+    input [9:0] xcount,
+    input [9:0] ycount,
+	 input indisplay,
     output [3:0] row,
     output [3:0] col
     );
 	
-	reg [9:0] xcount;
-	reg [9:0] ycount;
-	
-	assign row = x/100;
-	assign col = y/60;
-	
-	always @ (posedge clk)
+	always@(posedge clk)
 	  begin
-	    if(h_sync == 0)
+	    if(indisplay)
 		   begin
-			  x<=0;
-			  y<=y+1;
-			end
-		 else
-		   begin
-			  x<=x+1;
-			end
-		 if(y_sync == 0)
-		   begin
-			  y<=0;
-			end
+			  row <= xcount/80;
+			  col <= ycount/60;
+		   end 
 	  end
 
 endmodule
