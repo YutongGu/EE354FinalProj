@@ -12,12 +12,20 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	output vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b;
 	output An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp;
 	output LD0, LD1, LD2, LD3, LD4, LD5, LD6, LD7;
-	reg vga_r, vga_g, vga_b;
+	wire vga_r0, vga_g0, vga_r1, vga_g1, vga_b1, vga_r2, vga_g2, vga_b2;
+	
+	reg [2:0] vga_r = {vga_r2, vga_r1, vga_r0};
+	reg [2:0] vga_g = {vga_g2, vga_g1, vga_g0};
+	reg [1:0] vga_b = {vga_b2, vga_b1};
 	
 	//////////////////////////////////////////////////////////////////////////////////////////
 	
 	/*  LOCAL SIGNALS */
-	wire	reset, start, ClkPort, board_clk, clk, button_clk;
+	wire reset, start, ClkPort, board_clk, clk, button_clk;
+	wire [3:0] update_clk_div;
+	reg  update_clk;
+	wire [3:0] clk_thres;
+	wire [2:0] level;
 	
 	BUF BUF1 (board_clk, ClkPort); 	
 	BUF BUF2 (reset, Sw0);
@@ -34,12 +42,25 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 
 	assign	button_clk = DIV_CLK[18];
 	assign	clk = DIV_CLK[1];
+	assign 	update_clk_div = DIV_CLK[25:22];
 	assign 	{St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar} = {5'b11111};
-	
+	assign   clk_thres = 12-level;
+	  
 	wire inDisplayArea;
 	wire [9:0] CounterX;
 	wire [9:0] CounterY;
+	wire write_strobe;
+	wire fsm_row_index;
+	wire [2:0] fsm_output;
 
+	wire [2:0] row;
+	wire [2:0] col;
+	
+	assign row = CounterX/80;
+	assign col = CounterY/60;
+	
+	reg [2:0] blockarray [2:0];
+	
 	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), .inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
 	
 	/////////////////////////////////////////////////////////////////
@@ -49,23 +70,29 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r, vga_g, vga_b, Sw0, Sw1, 
 	
 	always @(posedge DIV_CLK[21])
 		begin
-			if(reset)
-				position<=240;
-			else if(btnD && ~btnU)
-				position<=position+2;
-			else if(btnU && ~btnD)
-				position<=position-2;	
+			if(update_clk_div == clk_thres) //updating the block moving speed
+				update_clk <= 1;
+			else
+				update_clk <= 0;
 		end
 
-	wire R = CounterY>=(position-10) && CounterY<=(position+10) && CounterX[8:5]==7;
-	wire G = CounterX>100 && CounterX<200 && CounterY[5:3]==7;
-	wire B = 0;
+	wire R = blockarray[row][col];
+	wire G = blockarray[row][col];
+	wire B = blockarray[row][col];
+	
+	wire R_en = R & inDisplayArea;
+	wire G_en = G & inDisplayArea;
+	wire B_en = B & inDisplayArea;
 	
 	always @(posedge clk)
 	begin
-		vga_r <= R & inDisplayArea;
-		vga_g <= G & inDisplayArea;
-		vga_b <= B & inDisplayArea;
+		vga_r <= {R_en, R_en, R_en};
+		vga_g <= {G_en, G_en, G_en};
+		vga_b <= {B_en, B_en};
+		if(write_strobe)
+			begin
+				blockarray[fsm_row_index] <= fsm_output;
+			end
 	end
 	
 	/////////////////////////////////////////////////////////////////
