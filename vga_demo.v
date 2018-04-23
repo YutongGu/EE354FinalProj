@@ -8,11 +8,17 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar,
 	An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp,
 	LD0, LD1, LD2, LD3, LD4, LD5, LD6, LD7);
+	
 	input ClkPort, Sw0, BtnC;
 	output St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar;
 	output vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1, vga_b1, vga_r2, vga_g2, vga_b2;
 	output An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp;
 	output LD0, LD1, LD2, LD3, LD4, LD5, LD6, LD7;
+	
+	wire [1:0] 	ssdscan_clk;
+	reg [3:0]	SSD;
+	wire [3:0]	SSD3, SSD2, SSD1, SSD0;
+	reg [7:0]  	SSD_CATHODES;
 	
 	reg [2:0] vga_r;
 	reg [2:0] vga_g;
@@ -31,12 +37,15 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	
 	/*  LOCAL SIGNALS */
 	wire reset, ClkPort, board_clk, clk;
-	wire [3:0] fsm_update_clk_div;
+	reg [3:0] fsm_update_clk_div;
 	reg  fsm_update_clk;
 	wire [3:0] clk_thres;
 	
 	BUF BUF1 (board_clk, ClkPort); 	
 	BUF BUF2 (reset, Sw0);
+	
+	assign LD0 = BtnC;
+	assign LD1 = fsm_BtnC_SCEN;
 	
 	reg [27:0]	DIV_CLK;
 	always @ (posedge board_clk, posedge reset)  
@@ -48,7 +57,7 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	end	
 
 	assign	clk = DIV_CLK[1];
-	assign 	fsm_update_clk_div = DIV_CLK[25:22];
+	
 	assign 	{St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar} = {5'b11111};
 
 	wire inDisplayArea;
@@ -60,57 +69,34 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	wire fsm_clrarray;
 	wire fsm_BtnC_SCEN;
 	
-	assign clk_thres = 12-fsm_row_index;
+	assign clk_thres = 4'd12 - {1'b0,fsm_row_index};
 
 	wire [2:0] row;
 	wire [2:0] col;
+
 	
-	/*
-	wire [7:0] decoded_col;
-	wire [7:0] decoded_row;
-	
-	always@(*)
-		begin
-			case(col)
-				3'd0: decoded_col = 8'b00000001;
-				3'd1: decoded_col = 8'b00000010;
-				3'd2: decoded_col = 8'b00000100;
-				3'd3: decoded_col = 8'b00001000;
-				3'd4: decoded_col = 8'b00010000;
-				3'd5: decoded_col = 8'b00100000;
-				3'd6: decoded_col = 8'b01000000;
-				3'd7: decoded_col = 8'b10000000;
-			endcase
-			case(row)
-				3'd0: decoded_row = 8'b00000001;
-				3'd1: decoded_row = 8'b00000010;
-				3'd2: decoded_row = 8'b00000100;
-				3'd3: decoded_row = 8'b00001000;
-				3'd4: decoded_row = 8'b00010000;
-				3'd5: decoded_row = 8'b00100000;
-				3'd6: decoded_row = 8'b01000000;
-				3'd7: decoded_row = 8'b10000000;
-			endcase
-		end
-	*/
-	
-	assign row = CounterX/80;
-	assign col = CounterY/60;
+	assign col = CounterX/80;
+	assign row = CounterY/60;
 
 	reg [7:0] blockarray [7:0];
 	
-	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), .inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
-	ee201_debouncer #(.N_dc(25)) ee201_debouncer_1 
+	wire [2:0] fsm_state;
+	
+	hvsync_generator syncgen(.clk(clk), .reset(reset),.vga_h_sync(vga_h_sync), .vga_v_sync(vga_v_sync), 
+		.inDisplayArea(inDisplayArea), .CounterX(CounterX), .CounterY(CounterY));
+		
+	ee201_debouncer #(.N_dc(15)) ee201_debouncer_1 
         (.CLK(clk), .RESET(reset), .PB(BtnC), .DPB( ), .SCEN(fsm_BtnC_SCEN), .MCEN( ), .CCEN( ));
 
-	fsm statemachine(.clk(clk), .btn(fsm_BtnC_SCEN), .updateClk(fsm_update_clk), .reset(reset), .val(fsm_output), .rowIndex(fsm_row_index), .writeStrobe(fsm_write_strobe), .clrarray(fsm_clrarray));
+	fsm statemachine(.clk(clk), .btn(fsm_BtnC_SCEN), .updateClk(fsm_update_clk), .reset(reset), .val(fsm_output), 
+		.rowIndex(fsm_row_index), .writeStrobe(fsm_write_strobe), .clrarray(fsm_clrarray), .state(fsm_state));
 	/////////////////////////////////////////////////////////////////
 	///////////////		VGA control starts here		/////////////////
 	/////////////////////////////////////////////////////////////////
 
-	wire R = blockarray[7-row][col];
-	wire G = blockarray[7-row][col];
-	wire B = blockarray[7-row][col];
+	wire R = blockarray[row][7-col];
+	wire G = blockarray[row][7-col];
+	wire B = blockarray[row][7-col];
 	
 	wire R_en = R & inDisplayArea;
 	wire G_en = G & inDisplayArea;
@@ -123,10 +109,11 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 		vga_g <= {G_en, G_en, G_en};
 		vga_b <= {B_en, B_en};
 		
-		if(fsm_update_clk_div == clk_thres & update_flag == 0) //updating the block moving speed
+		if((fsm_update_clk_div == clk_thres) & (update_flag == 0)) //updating the block moving speed
 			begin
 				fsm_update_clk <= 1;
 				update_flag <= 1;
+				
 			end
 		else
 			fsm_update_clk <= 0;
@@ -151,6 +138,21 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 				blockarray[7-fsm_row_index] <= fsm_output;
 			end
 	end
+	
+	reg btnflag;
+	
+	always@(posedge DIV_CLK[21] or posedge fsm_BtnC_SCEN)
+	begin
+		if(fsm_BtnC_SCEN)
+			fsm_update_clk_div <= 0;
+		else
+			if(fsm_update_clk_div == clk_thres)
+				fsm_update_clk_div <= 0;
+			else
+				fsm_update_clk_div <= fsm_update_clk_div + 1;	
+				
+	end
+	
 	
 	/////////////////////////////////////////////////////////////////
 	//////////////  	  VGA control ends here 	 ///////////////////
@@ -188,60 +190,59 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	/////////////////////////////////////////////////////////////////
 	//////////////  	  SSD control starts here 	 ///////////////////
 	/////////////////////////////////////////////////////////////////
-	reg 	[3:0]	SSD;
-	wire 	[3:0]	SSD0, SSD1, SSD2, SSD3;
-	wire 	[1:0] ssdscan_clk;
+	*/
 	
-	assign SSD3 = 4'b1111;
-	assign SSD2 = 4'b1111;
-	assign SSD1 = 4'b1111;
-	assign SSD0 = position[3:0];
+	assign SSD3 = fsm_row_index;
+	assign SSD2 = fsm_state;
+	assign SSD1 = clk_thres;
+	assign SSD0 = fsm_update_clk_div;
+	assign ssdscan_clk = DIV_CLK[19:18];
+
 	
-	// need a scan clk for the seven segment display 
-	// 191Hz (50MHz / 2^18) works well
-	assign ssdscan_clk = DIV_CLK[19:18];	
 	assign An0	= !(~(ssdscan_clk[1]) && ~(ssdscan_clk[0]));  // when ssdscan_clk = 00
 	assign An1	= !(~(ssdscan_clk[1]) &&  (ssdscan_clk[0]));  // when ssdscan_clk = 01
-	assign An2	= !( (ssdscan_clk[1]) && ~(ssdscan_clk[0]));  // when ssdscan_clk = 10
-	assign An3	= !( (ssdscan_clk[1]) &&  (ssdscan_clk[0]));  // when ssdscan_clk = 11
+	assign An2	=  !((ssdscan_clk[1]) && ~(ssdscan_clk[0]));  // when ssdscan_clk = 10
+	assign An3	=  !((ssdscan_clk[1]) &&  (ssdscan_clk[0]));  // when ssdscan_clk = 11
+	
 	
 	always @ (ssdscan_clk, SSD0, SSD1, SSD2, SSD3)
 	begin : SSD_SCAN_OUT
 		case (ssdscan_clk) 
-			2'b00:
-					SSD = SSD0;
-			2'b01:
-					SSD = SSD1;
-			2'b10:
-					SSD = SSD2;
-			2'b11:
-					SSD = SSD3;
+				  2'b00: SSD = SSD0;
+				  2'b01: SSD = SSD1;
+				  2'b10: SSD = SSD2;
+				  2'b11: SSD = SSD3;
 		endcase 
-	end	
+	end
 
-	// and finally convert SSD_num to ssd
-	reg [6:0]  SSD_CATHODES;
-	assign {Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp} = {SSD_CATHODES, 1'b1};
 	// Following is Hex-to-SSD conversion
 	always @ (SSD) 
 	begin : HEX_TO_SSD
-		case (SSD)		
-			4'b1111: SSD_CATHODES = 7'b1111111 ; //Nothing 
-			4'b0000: SSD_CATHODES = 7'b0000001 ; //0
-			4'b0001: SSD_CATHODES = 7'b1001111 ; //1
-			4'b0010: SSD_CATHODES = 7'b0010010 ; //2
-			4'b0011: SSD_CATHODES = 7'b0000110 ; //3
-			4'b0100: SSD_CATHODES = 7'b1001100 ; //4
-			4'b0101: SSD_CATHODES = 7'b0100100 ; //5
-			4'b0110: SSD_CATHODES = 7'b0100000 ; //6
-			4'b0111: SSD_CATHODES = 7'b0001111 ; //7
-			4'b1000: SSD_CATHODES = 7'b0000000 ; //8
-			4'b1001: SSD_CATHODES = 7'b0000100 ; //9
-			4'b1010: SSD_CATHODES = 7'b0001000 ; //10 or A
-			default: SSD_CATHODES = 7'bXXXXXXX ; // default is not needed as we covered all cases
+		case (SSD) // in this solution file the dot points are made to glow by making Dp = 0
+		    //                                                                abcdefg,Dp
+			4'b0000: SSD_CATHODES = 8'b00000010; // 0
+			4'b0001: SSD_CATHODES = 8'b10011110; // 1
+			4'b0010: SSD_CATHODES = 8'b00100100; // 2
+			4'b0011: SSD_CATHODES = 8'b00001100; // 3
+			4'b0100: SSD_CATHODES = 8'b10011000; // 4
+			4'b0101: SSD_CATHODES = 8'b01001000; // 5
+			4'b0110: SSD_CATHODES = 8'b01000000; // 6
+			4'b0111: SSD_CATHODES = 8'b00011110; // 7
+			4'b1000: SSD_CATHODES = 8'b00000000; // 8
+			4'b1001: SSD_CATHODES = 8'b00001000; // 9
+			4'b1010: SSD_CATHODES = 8'b00010000; // A
+			4'b1011: SSD_CATHODES = 8'b11000000; // B
+			4'b1100: SSD_CATHODES = 8'b01100010; // C
+			4'b1101: SSD_CATHODES = 8'b10000100; // D
+			4'b1110: SSD_CATHODES = 8'b01100000; // E
+			4'b1111: SSD_CATHODES = 8'b01110000; // F    
+			default: SSD_CATHODES = 8'bXXXXXXXX; // default is not needed as we covered all cases
 		endcase
-	end
-	*/
+	end	
+	
+	// reg [7:0]  SSD_CATHODES;
+	assign {Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp} = {SSD_CATHODES};
+	
 	/////////////////////////////////////////////////////////////////
 	//////////////  	  SSD control ends here 	 ///////////////////
 	/////////////////////////////////////////////////////////////////
