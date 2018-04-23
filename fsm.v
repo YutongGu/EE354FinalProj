@@ -19,12 +19,14 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 module fsm(
+	 input clk,
     input btn,
     input updateClk,
 	 input reset,
     output reg [7:0] val,
     output reg [2:0] rowIndex,
     output writeStrobe,
+	 output clrarray
     );
 
 localparam
@@ -44,16 +46,17 @@ localparam
  reg [7:0] nextRow;
  
  reg dir;
- reg [7:0] nextrow;
  wire ack;
  wire [2:0] rowMax;
 
 assign rowMax = 3'b111;
- assign ack = ((state == WIN | state == LOSE) & btn);
+assign ack = ((state == WIN | state == LOSE) & btn);
+assign clrarray = (state == INIT);
+assign writeStrobe = (state == TRACE) & updateClk;
 
 //start of state machine
-always @(posedge updateClk, posedge reset) //asynchronous active_high Reset
- begin  
+always @(posedge clk, posedge reset) //asynchronous active_high Reset //YG: isn't there a thing against asynchronous resets?
+	begin  
 	   if (reset) 
 	       begin
 	           state <= INIT;
@@ -63,89 +66,94 @@ always @(posedge updateClk, posedge reset) //asynchronous active_high Reset
             case (state) // state and data transfers
                  INIT:
 						  begin
-					// state transitions
-                        if(btn)
-									state <= TRACE;
+							// state transitions
+								state <= TRACE;
 									
-					// RTL
-					   currRow <= 8'b11100000;
-						prevRow <= 8'b11111111;
-						nextRow <= 8'b00000000;
-						rowIndex <= 0;
-						dir <= RIGHT;
+							// RTL
+								currRow <= 8'b11100000;
+								prevRow <= 8'b11111111;
+								nextRow <= 8'b00000000;
+								rowIndex <= 0;
+								dir <= RIGHT;
 						
 						  end
                        
                  TRACE:               
-                    begin  
-					// state transition
-						if(btn)
-							state <= CHECK;
+							begin  
+							// state transition
+								if(btn)
+									state <= CHECK;
 
-					//RTL
-						if(updateClk)
-							begin
-								if(dir == RIGHT)
-									currRow <= currRow >> 1;
+							//RTL
+								if(updateClk)
+									begin
+										if(dir == RIGHT)
+											begin
+												currRow <= currRow >> 1;
+												val <= currRow >> 1;
+											end
+										else
+											begin
+												currRow <= currRow << 1;
+												val <= currRow << 1;
+											end
+									end
 								else
-									currRow <= currRow << 1;
+									
+								if(currRow[0] == 1)
+									dir <= RIGHT;
+								else if(currRow[7] == 1)
+									dir <= LEFT;
+								if(btn)
+									nextRow <= (currRow & prevRow);
 							end
-						if(currRow[0] == 1)
-							dir <= RIGHT;
-						else if(currRow[7] == 1)
-							dir <= LEFT;
-						if(btn)
-							nextrow <= (currRow & prevRow);
-							end
-                 CHECK:       
+						CHECK:   
 						  begin 
-					// state transitions
-						if(nextRow[0] == 0)
-							state <= LOSE;
-						else
-							begin
-								if(rowIndex < rowMax)
-									state <= UPDATE;
+							// state transitions
+								if(nextRow[0] == 0)
+									state <= LOSE;
 								else
-									state <= WIN;
-							end
-					//RTL
-						rowIndex <= rowIndex + 1;
-						val <= nextRow;
+									begin
+										if(rowIndex < rowMax)
+											state <= UPDATE;
+										else
+											state <= WIN;
+									end
+							//RTL
+								rowIndex <= rowIndex + 1;
+								
                     end
 						  
                  UPDATE:       
 						  begin 
-					// state transitions
-						if(nextRow[0] == 1)
-							state <= TRACE;
-						
-					//RTL
-						if(nextRow[0] != 1)
-							nextRow <= nextRow << 1;
-						else
-							begin
-								prevRow <= currRow;
-								currRow <= nextRow;
-							end
-						
+						// state transitions
+							if(nextRow[0] == 1)
+								state <= TRACE;
 							
+						//RTL
+							if(nextRow[0] != 1)
+								nextRow <= nextRow << 1;
+							else
+								begin
+									prevRow <= currRow;
+									currRow <= nextRow;		
+								end
                     end  
 						  
                  WIN:       
 						  begin 
-					// state transitions
-						if(ack)
-							state <= INIT;
+						// state transitions
+							if(ack)
+								state <= INIT;
                     end
 						  
                  LOSE:       
 						  begin 
-					// state transitions
-						if(ack)
-							state <= INIT;
+						// state transitions
+							if(ack)
+								state <= INIT;
                     end
-					default: 
+					  default: 
                     begin
                          state <= UNKN;    
                     end
