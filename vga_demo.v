@@ -173,29 +173,29 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 			2'b01:
 				begin
 					rval_on <= 3'b000;
-					rval_off <= 3'b111;
-					gval_on <= 3'b000;
-					gval_off <= 3'b111;
+					rval_off <= 3'b000;
+					gval_on <= 3'b111;
+					gval_off <= 3'b000;
 					bval_on <= 2'b00;
-					bval_off <= 2'b11;
+					bval_off <= 2'b00;
 				end
 			2'b10:
 				begin
 					rval_on <= 3'b111;
-					rval_off <= 3'b111;
-					gval_on <= 3'b111;
-					gval_off <= 3'b001;
-					bval_on <= 2'b01;
-					bval_off <= 2'b01;
+					rval_off <= 3'b000;
+					gval_on <= 3'b000;
+					gval_off <= 3'b000;
+					bval_on <= 2'b00;
+					bval_off <= 2'b00;
 				end
 			2'b11:
 				begin
-					rval_on <= 3'b111;
-					rval_off <= 3'b111;
-					gval_on <= 3'b001;
-					gval_off <= 3'b111;
-					bval_on <= 2'b01;
-					bval_off <= 2'b01;
+					rval_on <= 3'b000;
+					rval_off <= 3'b000;
+					gval_on <= 3'b000;
+					gval_off <= 3'b000;
+					bval_on <= 2'b11;
+					bval_off <= 2'b00;
 				end
 		endcase
 	end
