@@ -35,6 +35,7 @@ localparam
  TRACE  = 3'b001,
  CHECK   = 3'b010,
  UPDATE  = 3'b100,
+ BLINK  = 3'b110,
  WIN  = 3'b101,
  LOSE  = 3'b111,
  UNKN  = 3'bxxx,
@@ -49,6 +50,7 @@ localparam
  reg dir;
  wire ack;
  wire [2:0] rowMax;
+ wire [1:0] count;
 
 assign rowMax = 3'b111;
 assign ack = ((state == WIN | state == LOSE) & btn);
@@ -75,6 +77,7 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 								prevRow <= 8'b11111111;
 								nextRow <= 8'b00000000;
 								rowIndex <= 0;
+								count <= 0;
 								dir <= RIGHT;
 								writeStrobe <= 1;
 						  end
@@ -86,7 +89,7 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 									begin
 										state <= CHECK;
 										nextRow <= (currRow & prevRow);
-										currRow <= (currRow & prevRow);
+										//currRow <= (currRow & prevRow);
 										val <= (currRow & prevRow);
 										writeStrobe <= 1;
 									end
@@ -126,7 +129,12 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 								else
 									begin
 										if(rowIndex < rowMax)
-											state <= UPDATE;
+										begin
+											if(nextRow < currRow)
+												state <= BLINK;
+											else
+												state <= UPDATE;
+										end
 										else
 											state <= WIN;
 									end
@@ -134,7 +142,24 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 								rowIndex <= rowIndex + 1;
 								
                     end
-						  
+					  BLINK:
+						begin
+						//state transition
+							if(count == 3)
+								begin
+									state <= UPDATE;
+									currRow <= (currRow & prevRow);
+								end
+						
+						//RTL
+							writeStrobe <= 1;
+							count <= count + 1;
+							if(count == 0 || count == 2)
+								val <= currRow;
+							else
+								val <= (currRow & prevRow);
+							
+						end
                  UPDATE:       
 						  begin 
 						// state transitions
