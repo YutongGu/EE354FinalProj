@@ -4,12 +4,12 @@
 // Author:  Da Cheng
 //////////////////////////////////////////////////////////////////////////////////
 module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1, 
-	vga_b1, vga_r2, vga_g2, vga_b2, Sw0, BtnC,
+	vga_b1, vga_r2, vga_g2, vga_b2, Sw6, Sw7, BtnC, BtnD,
 	St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar,
 	An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp,
 	LD0, LD1, LD2, LD3, LD4, LD5, LD6, LD7);
 	
-	input ClkPort, Sw0, BtnC;
+	input ClkPort, BtnC, BtnD, Sw6, Sw7;
 	output St_ce_bar, St_rp_bar, Mt_ce_bar, Mt_St_oe_bar, Mt_St_we_bar;
 	output vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1, vga_b1, vga_r2, vga_g2, vga_b2;
 	output An0, An1, An2, An3, Ca, Cb, Cc, Cd, Ce, Cf, Cg, Dp;
@@ -19,6 +19,8 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	reg [3:0]	SSD;
 	wire [3:0]	SSD3, SSD2, SSD1, SSD0;
 	reg [7:0]  	SSD_CATHODES;
+	
+	wire [1:0] 	colorschm;
 	
 	reg [2:0] vga_r;
 	reg [2:0] vga_g;
@@ -33,6 +35,8 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	assign vga_b2 = vga_b[1];
 	assign vga_b1 = vga_b[0];
 	
+	assign colorschm = {Sw6, Sw7};
+	
 	//////////////////////////////////////////////////////////////////////////////////////////
 	
 	/*  LOCAL SIGNALS */
@@ -42,7 +46,7 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	wire [3:0] clk_thres;
 	
 	BUF BUF1 (board_clk, ClkPort); 	
-	BUF BUF2 (reset, Sw0);
+	BUF BUF2 (reset, BtnD);
 	
 	assign LD0 = BtnC;
 	assign LD1 = fsm_BtnC_SCEN;
@@ -69,11 +73,10 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	wire fsm_clrarray;
 	wire fsm_BtnC_SCEN;
 	
-	assign clk_thres = 4'd12 - {1'b0,fsm_row_index};
+	assign clk_thres = 4'd10 - {1'b0,fsm_row_index};
 
 	wire [2:0] row;
 	wire [2:0] col;
-
 	
 	assign col = CounterX/80;
 	assign row = CounterY/60;
@@ -101,13 +104,32 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	wire R_en = R & inDisplayArea;
 	wire G_en = G & inDisplayArea;
 	wire B_en = B & inDisplayArea;
+	
 	reg update_flag;
+	reg [2:0] rval_on;
+	reg [2:0] gval_on;
+	reg [1:0] bval_on;
+	reg [2:0] rval_off;
+	reg [2:0] gval_off;
+	reg [1:0] bval_off;
 	
 	always @(posedge clk)
 	begin
-		vga_r <= {R_en, R_en, R_en};
-		vga_g <= {G_en, G_en, G_en};
-		vga_b <= {B_en, B_en};
+	
+		if(R_en)
+			vga_r <= rval_on;
+		else
+			vga_r <= rval_off;
+			
+		if(G_en)
+			vga_g <= gval_on;
+		else
+			vga_g <= gval_off;
+			
+		if(B_en)
+			vga_b <= bval_on;
+		else
+			vga_b <= bval_off;
 		
 		if((fsm_update_clk_div == clk_thres) & (update_flag == 0)) //updating the block moving speed
 			begin
@@ -137,6 +159,45 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 			begin
 				blockarray[7-fsm_row_index] <= fsm_output;
 			end
+			
+		case(colorschm)
+			2'b00: 
+				begin
+					rval_on <= 3'b111;
+					rval_off <= 3'b000;
+					gval_on <= 3'b111;
+					gval_off <= 3'b000;
+					bval_on <= 2'b11;
+					bval_off <= 2'b00;
+				end
+			2'b01:
+				begin
+					rval_on <= 3'b000;
+					rval_off <= 3'b111;
+					gval_on <= 3'b000;
+					gval_off <= 3'b111;
+					bval_on <= 2'b00;
+					bval_off <= 2'b11;
+				end
+			2'b10:
+				begin
+					rval_on <= 3'b111;
+					rval_off <= 3'b111;
+					gval_on <= 3'b111;
+					gval_off <= 3'b001;
+					bval_on <= 2'b01;
+					bval_off <= 2'b01;
+				end
+			2'b11:
+				begin
+					rval_on <= 3'b111;
+					rval_off <= 3'b111;
+					gval_on <= 3'b001;
+					gval_off <= 3'b111;
+					bval_on <= 2'b01;
+					bval_off <= 2'b01;
+				end
+		endcase
 	end
 	
 	reg btnflag;
@@ -192,10 +253,10 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	/////////////////////////////////////////////////////////////////
 	*/
 	
-	assign SSD3 = fsm_row_index;
-	assign SSD2 = fsm_state;
-	assign SSD1 = clk_thres;
-	assign SSD0 = fsm_update_clk_div;
+	assign SSD3 = rval_on;
+	assign SSD2 = rval_off;
+	assign SSD1 = gval_on;
+	assign SSD0 = gval_off;
 	assign ssdscan_clk = DIV_CLK[19:18];
 
 	

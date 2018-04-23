@@ -90,6 +90,8 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 										val <= (currRow & prevRow);
 										writeStrobe <= 1;
 									end
+								else
+									writeStrobe <= 0;
 							
 							//RTL
 								if(updateClk && ~btn)
@@ -106,8 +108,6 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 											end
 										writeStrobe <= 1;
 									end
-								else
-									writeStrobe <= 0;
 								//else
 									
 								if(currRow[0] == 1)
