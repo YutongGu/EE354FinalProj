@@ -55,7 +55,7 @@ assign clrarray = (state == INIT);
 assign writeStrobe = (state == TRACE) & updateClk;
 
 //start of state machine
-always @(posedge clk, posedge reset) //asynchronous active_high Reset //YG: isn't there a thing against asynchronous resets?
+always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing against asynchronous resets?
 	begin  
 	   if (reset) 
 	       begin
