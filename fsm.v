@@ -50,7 +50,7 @@ localparam
  reg dir;
  wire ack;
  wire [2:0] rowMax;
- wire [1:0] count;
+reg [1:0] count;
 
 assign rowMax = 3'b111;
 assign ack = ((state == WIN | state == LOSE) & btn);
@@ -130,7 +130,7 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 									begin
 										if(rowIndex < rowMax)
 										begin
-											if(nextRow < currRow)
+											if(currRow != prevRow)
 												state <= BLINK;
 											else
 												state <= UPDATE;
@@ -153,8 +153,9 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 						
 						//RTL
 							writeStrobe <= 1;
-							count <= count + 1;
-							if(count == 0 || count == 2)
+							if(updateClk)
+								count <= count + 1;
+							if(count[1])
 								val <= currRow;
 							else
 								val <= (currRow & prevRow);
