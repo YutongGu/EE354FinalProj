@@ -25,8 +25,9 @@ module fsm(
 	 input reset,
     output reg [7:0] val,
     output reg [2:0] rowIndex,
-    output writeStrobe,
-	 output clrarray
+    output reg writeStrobe,
+	 output clrarray,
+	 output reg [2:0] state
     );
 
 localparam
@@ -40,7 +41,7 @@ localparam
  RIGHT = 1'b1,
  LEFT = 1'b0;
  
- reg [2:0] state;
+
  reg [7:0] currRow;
  reg [7:0] prevRow;
  reg [7:0] nextRow;
@@ -52,7 +53,7 @@ localparam
 assign rowMax = 3'b111;
 assign ack = ((state == WIN | state == LOSE) & btn);
 assign clrarray = (state == INIT);
-assign writeStrobe = (state == TRACE) & updateClk;
+
 
 //start of state machine
 always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing against asynchronous resets?
@@ -75,19 +76,25 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 								nextRow <= 8'b00000000;
 								rowIndex <= 0;
 								dir <= RIGHT;
-						
+								writeStrobe <= 1;
 						  end
                        
                  TRACE:               
 							begin  
 							// state transition
 								if(btn)
-									state <= CHECK;
-
-							//RTL
-								if(updateClk)
 									begin
-										if(dir == RIGHT)
+										state <= CHECK;
+										nextRow <= (currRow & prevRow);
+										currRow <= (currRow & prevRow);
+										val <= (currRow & prevRow);
+										writeStrobe <= 1;
+									end
+							
+							//RTL
+								if(updateClk && ~btn)
+									begin
+										if(dir == LEFT)
 											begin
 												currRow <= currRow >> 1;
 												val <= currRow >> 1;
@@ -97,20 +104,24 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 												currRow <= currRow << 1;
 												val <= currRow << 1;
 											end
+										writeStrobe <= 1;
 									end
 								else
+									writeStrobe <= 0;
+								//else
 									
 								if(currRow[0] == 1)
 									dir <= RIGHT;
 								else if(currRow[7] == 1)
 									dir <= LEFT;
-								if(btn)
-									nextRow <= (currRow & prevRow);
+									
+								
 							end
 						CHECK:   
 						  begin 
+								writeStrobe <= 0;
 							// state transitions
-								if(nextRow[0] == 0)
+								if(nextRow == 0)
 									state <= LOSE;
 								else
 									begin
@@ -127,16 +138,18 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
                  UPDATE:       
 						  begin 
 						// state transitions
-							if(nextRow[0] == 1)
+							if(nextRow[7] == 1)
 								state <= TRACE;
 							
 						//RTL
-							if(nextRow[0] != 1)
+							if(nextRow[7] != 1)
 								nextRow <= nextRow << 1;
 							else
 								begin
 									prevRow <= currRow;
-									currRow <= nextRow;		
+									currRow <= nextRow;	
+									val <= nextRow;
+									writeStrobe <= 1;
 								end
                     end  
 						  
