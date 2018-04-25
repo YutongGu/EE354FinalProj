@@ -145,17 +145,19 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 					  BLINK:
 						begin
 						//state transition
-							if(count == 3)
+							if(count == 5)
 								begin
 									state <= UPDATE;
 									currRow <= (currRow & prevRow);
+									count <= 0;
+									writeStrobe <=0 ;
 								end
 						
 						//RTL
 							writeStrobe <= 1;
 							if(updateClk)
 								count <= count + 1;
-							if(count[1])
+							if(count[0])
 								val <= currRow;
 							else
 								val <= (currRow & prevRow);
