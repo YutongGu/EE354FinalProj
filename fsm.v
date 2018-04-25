@@ -26,7 +26,7 @@ module fsm(
     output reg [7:0] val,
     output reg [2:0] rowIndex,
     output reg writeStrobe,
-	 output clrarray,
+	 output reg clrarray,
 	 output reg [2:0] state
     );
 
@@ -50,11 +50,10 @@ localparam
  reg dir;
  wire ack;
  wire [2:0] rowMax;
-reg [1:0] count;
+reg [3:0] count;
 
 assign rowMax = 3'b111;
 assign ack = ((state == WIN | state == LOSE) & btn);
-assign clrarray = (state == INIT);
 
 
 //start of state machine
@@ -71,7 +70,7 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 						  begin
 							// state transitions
 								state <= TRACE;
-									
+								clrarray <= 1;
 							// RTL
 								currRow <= 8'b11100000;
 								prevRow <= 8'b11111111;
@@ -85,6 +84,7 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
                  TRACE:               
 							begin  
 							// state transition
+								clrarray <= 0;
 								if(btn)
 									begin
 										state <= CHECK;
@@ -124,37 +124,45 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 						  begin 
 								writeStrobe <= 0;
 							// state transitions
-								if(nextRow == 0)
-									state <= LOSE;
-								else
-									begin
-										if(rowIndex < rowMax)
+								
+								if(rowIndex < rowMax)
+								begin
+									if(currRow != prevRow & prevRow != 8'b11111111)
+										state <= BLINK;
+									else
 										begin
-											if(currRow != prevRow)
-												state <= BLINK;
-											else
-												state <= UPDATE;
+											state <= UPDATE;
+											rowIndex <= rowIndex + 1;
 										end
-										else
-											state <= WIN;
-									end
+								end
+								else
+									state <= WIN;
 							//RTL
-								rowIndex <= rowIndex + 1;
 								
                     end
 					  BLINK:
 						begin
 						//state transition
+							
+							writeStrobe <= 1;
 							if(count == 5)
 								begin
-									state <= UPDATE;
-									currRow <= (currRow & prevRow);
-									count <= 0;
-									writeStrobe <=0 ;
+									if(nextRow == 0)
+									begin
+										writeStrobe <=0;
+										state <= LOSE;
+									end
+									else
+									begin
+										state <= UPDATE;
+										currRow <= (currRow & prevRow);
+										count <= 0;
+										writeStrobe <=0 ;
+										rowIndex <= rowIndex + 1;
+									end
 								end
 						
 						//RTL
-							writeStrobe <= 1;
 							if(updateClk)
 								count <= count + 1;
 							if(count[0])
@@ -166,7 +174,32 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
                  UPDATE:       
 						  begin 
 						// state transitions
-							if(nextRow[7] == 1)
+							if(rowIndex[0])
+							begin
+								if(nextRow[7] == 1)
+									state <= TRACE;
+							end
+							else
+							begin
+								if(nextRow[0] == 1)
+									state <= TRACE;
+							end
+							
+						//RTL
+							if(nextRow[7] != 1 & rowIndex[0])
+								nextRow <= nextRow << 1;
+							else if(nextRow[0] != 1 & ~rowIndex[0])
+								nextRow <= nextRow >> 1;
+							else
+								begin
+									prevRow <= currRow;
+									currRow <= nextRow;	
+									val <= nextRow;
+									writeStrobe <= 1;
+								end
+                    end  
+						  
+						  /*if(nextRow[7] == 1)
 								state <= TRACE;
 							
 						//RTL
@@ -179,7 +212,7 @@ always @(posedge clk) //asynchronous active_high Reset //YG: isn't there a thing
 									val <= nextRow;
 									writeStrobe <= 1;
 								end
-                    end  
+                    end  */
 						  
                  WIN:       
 						  begin 

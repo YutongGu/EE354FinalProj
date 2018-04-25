@@ -210,23 +210,36 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	reg [3:0] tens;
 	reg [3:0] hundreds;
 	
-	always@(posedge counttrig)
+	always@(posedge counttrig or posedge fsm_clrarray)
 	begin
-		tenths <= tenths + 1;
-		if(tenths == 9)
+		if(fsm_clrarray)
+		begin	
+			tenths<=0;
+			ones<=0;
+			tens<=0;
+			hundreds<=0;
+		end
+		else
 		begin
-			tenths <= 0;
-			ones <= ones+1;
-			if(ones == 9)
+			if(fsm_state != 5 & fsm_state != 7)
 			begin
-				ones<=0;
-				tens<=tens+1;
-				if(tens == 9)
+				tenths <= tenths + 1;
+				if(tenths == 9)
 				begin
-					hundreds<=hundreds+1;
-					if(hundreds==9)
-						hundreds <= 0;
-				end	
+					tenths <= 0;
+					ones <= ones+1;
+					if(ones == 9)
+					begin
+						ones<=0;
+						tens<=tens+1;
+						if(tens == 9)
+						begin
+							hundreds<=hundreds+1;
+							if(hundreds==9)
+								hundreds <= 0;
+						end	
+					end
+				end
 			end
 		end
 	end
