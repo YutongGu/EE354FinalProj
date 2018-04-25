@@ -173,34 +173,92 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 			2'b01:
 				begin
 					rval_on <= 3'b000;
-					rval_off <= 3'b111;
-					gval_on <= 3'b000;
-					gval_off <= 3'b111;
+					rval_off <= 3'b000;
+					gval_on <= 3'b111;
+					gval_off <= 3'b000;
 					bval_on <= 2'b00;
-					bval_off <= 2'b11;
+					bval_off <= 2'b00;
 				end
 			2'b10:
 				begin
 					rval_on <= 3'b111;
-					rval_off <= 3'b111;
-					gval_on <= 3'b111;
-					gval_off <= 3'b001;
-					bval_on <= 2'b01;
-					bval_off <= 2'b01;
+					rval_off <= 3'b000;
+					gval_on <= 3'b000;
+					gval_off <= 3'b000;
+					bval_on <= 2'b00;
+					bval_off <= 2'b00;
 				end
 			2'b11:
 				begin
-					rval_on <= 3'b111;
-					rval_off <= 3'b111;
-					gval_on <= 3'b001;
-					gval_off <= 3'b111;
-					bval_on <= 2'b01;
-					bval_off <= 2'b01;
+					rval_on <= 3'b000;
+					rval_off <= 3'b000;
+					gval_on <= 3'b000;
+					gval_off <= 3'b000;
+					bval_on <= 2'b11;
+					bval_off <= 2'b00;
 				end
 		endcase
 	end
 	
 	reg btnflag;
+	
+	reg [16:0] counter;
+	reg counttrig;
+	
+	reg [3:0] tenths;
+	reg [3:0] ones;
+	reg [3:0] tens;
+	reg [3:0] hundreds;
+	
+	always@(posedge counttrig or posedge fsm_clrarray)
+	begin
+		if(fsm_clrarray)
+		begin	
+			tenths<=0;
+			ones<=0;
+			tens<=0;
+			hundreds<=0;
+		end
+		else
+		begin
+			if(fsm_state != 5 & fsm_state != 7)
+			begin
+				tenths <= tenths + 1;
+				if(tenths == 9)
+				begin
+					tenths <= 0;
+					ones <= ones+1;
+					if(ones == 9)
+					begin
+						ones<=0;
+						tens<=tens+1;
+						if(tens == 9)
+						begin
+							hundreds<=hundreds+1;
+							if(hundreds==9)
+								hundreds <= 0;
+						end	
+					end
+				end
+			end
+		end
+	end
+	
+	
+	always@(posedge DIV_CLK[6])
+	begin
+		
+		if(counter == 78125)
+		begin
+			counter<=0;
+			counttrig <= 1;
+		end
+		else
+		begin
+			counter <= counter+1;
+			counttrig <=0;
+		end
+	end
 	
 	always@(posedge DIV_CLK[21] or posedge fsm_BtnC_SCEN)
 	begin
@@ -253,10 +311,10 @@ module vga_demo(ClkPort, vga_h_sync, vga_v_sync, vga_r0, vga_g0, vga_r1, vga_g1,
 	/////////////////////////////////////////////////////////////////
 	*/
 	
-	assign SSD3 = rval_on;
-	assign SSD2 = rval_off;
-	assign SSD1 = gval_on;
-	assign SSD0 = gval_off;
+	assign SSD3 = hundreds;
+	assign SSD2 = tens;
+	assign SSD1 = ones;
+	assign SSD0 = tenths;
 	assign ssdscan_clk = DIV_CLK[19:18];
 
 	
